@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ROYAL X11</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: linear-gradient(180deg, #0B1440 0%, #142266 100%);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .card {
+    background: rgba(255,255,255,0.06);
+    border-radius: 16px;
+    padding: 32px 24px;
+    width: 100%;
+    max-width: 380px;
+  }
+  .logo {
+    text-align: center;
+    font-size: 30px;
+    font-weight: bold;
+    color: #D4AF37;
+    letter-spacing: 2px;
+    margin-bottom: 30px;
+  }
+  input {
+    width: 100%;
+    padding: 14px;
+    margin-bottom: 14px;
+    border-radius: 10px;
+    border: none;
+    background: rgba(255,255,255,0.1);
+    color: white;
+    font-size: 15px;
+  }
+  input::placeholder { color: rgba(255,255,255,0.5); }
+  button {
+    width: 100%;
+    padding: 14px;
+    border-radius: 10px;
+    border: none;
+    background: #1E4FDD;
+    color: white;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    margin-top: 6px;
+  }
+  button:disabled { opacity: 0.6; }
+  .switch-link {
+    text-align: center;
+    margin-top: 18px;
+    color: rgba(255,255,255,0.7);
+    font-size: 14px;
+  }
+  .switch-link a { color: #D4AF37; text-decoration: none; }
+  #message {
+    text-align: center;
+    margin-top: 14px;
+    font-size: 14px;
+    min-height: 18px;
+  }
+  .error { color: #ff6b6b; }
+  .success { color: #6bff9d; }
+  #signupForm { display: none; }
+</style>
+</head>
+<body>
+
+<div class="card">
+  <div class="logo">ROYAL X11</div>
+
+  <!-- LOGIN FORM -->
+  <div id="loginForm">
+    <input type="text" id="loginIdentifier" placeholder="Username / Mobile / Email" />
+    <input type="password" id="loginPassword" placeholder="Password" />
+    <button onclick="handleLogin()">LOG IN</button>
+    <div class="switch-link">Don't have an account? <a onclick="showSignup()">Sign Up</a></div>
+  </div>
+
+  <!-- SIGNUP FORM -->
+  <div id="signupForm">
+    <input type="text" id="signupFullName" placeholder="Full Name" />
+    <input type="text" id="signupUsername" placeholder="Username" />
+    <input type="text" id="signupMobile" placeholder="Mobile Number" />
+    <input type="email" id="signupEmail" placeholder="Email (optional)" />
+    <input type="password" id="signupPassword" placeholder="Password" />
+    <button onclick="handleSignup()">SIGN UP</button>
+    <div class="switch-link">Already have an account? <a onclick="showLogin()">Log In</a></div>
+  </div>
+
+  <div id="message"></div>
+</div>
+
+<!-- Firebase SDK -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js";
+  import {
+    getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword
+  } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-auth.js";
+  import {
+    getFirestore, doc, setDoc, getDoc, serverTimestamp
+  } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyCaY7kK-Fe0z4QQzrvwyWYKcnj7ImbMXdI",
+    authDomain: "royal-x11-85e44.firebaseapp.com",
+    projectId: "royal-x11-85e44",
+    storageBucket: "royal-x11-85e44.firebasestorage.app",
+    messagingSenderId: "1082777928409",
+    appId: "1:1082777928409:web:7e9b7cc35ef8b54a0334c8"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  window.showSignup = () => {
+    document.getElementById('loginForm').style.display = 'none';
+    document.getElementById('signupForm').style.display = 'block';
+    document.getElementById('message').textContent = '';
+  };
+  window.showLogin = () => {
+    document.getElementById('signupForm').style.display = 'none';
+    document.getElementById('loginForm').style.display = 'block';
+    document.getElementById('message').textContent = '';
+  };
+
+  function showMessage(text, isError) {
+    const el = document.getElementById('message');
+    el.textContent = text;
+    el.className = isError ? 'error' : 'success';
+  }
+
+  window.handleSignup = async () => {
+    const fullName = document.getElementById('signupFullName').value.trim();
+    const username = document.getElementById('signupUsername').value.trim();
+    const mobile = document.getElementById('signupMobile').value.trim();
+    const email = document.getElementById('signupEmail').value.trim();
+    const password = document.getElementById('signupPassword').value;
+
+    if (!fullName || !username || !mobile || !password) {
+      showMessage('Please fill all required fields.', true);
+      return;
+    }
+    if (password.length < 8) {
+      showMessage('Password must be at least 8 characters.', true);
+      return;
+    }
+
+    const authEmail = email || `${mobile}@royalx11.users`;
+
+    try {
+      const cred = await createUserWithEmailAndPassword(auth, authEmail, password);
+      await setDoc(doc(db, 'users', cred.user.uid), {
+        fullName, username, usernameLower: username.toLowerCase(),
+        mobileNumber: mobile, email: email || null, authEmail,
+        accountStatus: 'active', activeSessionId: null,
+        walletBalance: 0, totalMatchesPlayed: 0, matchesWon: 0, totalWinnings: 0,
+        createdAt: serverTimestamp()
+      });
+      showMessage('Account created! You can now log in.', false);
+      setTimeout(() => { showLogin(); }, 1200);
+    } catch (e) {
+      showMessage(mapError(e.code), true);
+    }
+  };
+
+  window.handleLogin = async () => {
+    const identifier = document.getElementById('loginIdentifier').value.trim();
+    const password = document.getElementById('loginPassword').value;
+    if (!identifier || !password) {
+      showMessage('Please enter your details.', true);
+      return;
+    }
+    // For simplicity in this first version, login expects the auth email
+    // (mobile@royalx11.users or real email). Username-based lookup will be
+    // added in the next module along with My Matches / Home screen.
+    const authEmail = identifier.includes('@') ? identifier : `${identifier}@royalx11.users`;
+    try {
+      const cred = await signInWithEmailAndPassword(auth, authEmail, password);
+      showMessage('Login successful! Welcome to ROYAL X11.', false);
+    } catch (e) {
+      showMessage(mapError(e.code), true);
+    }
+  };
+
+  function mapError(code) {
+    switch (code) {
+      case 'auth/email-already-in-use': return 'Account already exists.';
+      case 'auth/invalid-email': return 'Invalid mobile number or email.';
+      case 'auth/weak-password': return 'Password too weak.';
+      case 'auth/user-not-found':
+      case 'auth/wrong-password':
+      case 'auth/invalid-credential': return 'Incorrect login details.';
+      default: return 'Something went wrong. Try again.';
+    }
+  }
+</script>
+
+</body>
+  </html>
